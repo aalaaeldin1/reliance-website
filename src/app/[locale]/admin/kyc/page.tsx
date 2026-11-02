@@ -1,3 +1,4 @@
+import { requireStaff } from "@/lib/auth";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { pageCtx, type LP } from "@/lib/page";
 import { db } from "@/lib/db";
@@ -8,6 +9,7 @@ import { Empty, Notice, Pill } from "@/components/ui";
 
 export default async function Kyc({ params, searchParams }: LP & { searchParams: Promise<Record<string, string | undefined>> }) {
   const { l, t } = await pageCtx(params);
+  await requireStaff(l, ["verifier"]); // the menu hides this page from other roles; this blocks a typed address too
   const sp = await searchParams;
   const a = t.admin;
   const hosts = await db.select().from(hostProfiles).innerJoin(users, eq(users.id, hostProfiles.userId)).where(inArray(hostProfiles.kycStatus, ["pending", "rejected"])).orderBy(desc(hostProfiles.createdAt));

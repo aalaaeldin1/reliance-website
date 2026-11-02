@@ -1,3 +1,4 @@
+import { requireStaff } from "@/lib/auth";
 import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { pageCtx, type LP } from "@/lib/page";
@@ -9,6 +10,7 @@ import { Empty, Table } from "@/components/ui";
 
 export default async function Flags({ params }: LP) {
   const { l, t } = await pageCtx(params);
+  await requireStaff(l, ["verifier"]); // the menu hides this page from other roles; this blocks a typed address too
   const flags = await db.query.fraudFlags.findMany({ where: eq(fraudFlags.resolved, false), with: { listing: true }, orderBy: desc(fraudFlags.createdAt) });
   const msgs = await db.query.messages.findMany({ where: eq(messages.flagged, true), with: { booking: true, sender: true }, orderBy: desc(messages.createdAt), limit: 100 });
   const Resolve = ({ id, kind }: { id: string; kind: string }) => (

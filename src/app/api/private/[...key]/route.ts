@@ -1,4 +1,4 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { kycDocuments, payments } from "@/db/schema";
 import { getCurrent } from "@/lib/auth";
@@ -17,8 +17,11 @@ export async function GET(_: Request, { params }: { params: Promise<{ key: strin
     const own = await db.query.kycDocuments.findFirst({ where: and(eq(kycDocuments.fileKey, k), eq(kycDocuments.userId, cur.user.id)) });
     if (!own) return new Response("Not found", { status: 404 });
   } else {
-    const known = await db.query.kycDocuments.findFirst({ where: eq(kycDocuments.fileKey, k) }) ?? await db.query.payments.findFirst({ where: or(eq(payments.proofFileKey, k)) });
-    if (!known) return new Response("Not found", { status: 404 });
+    // Verifiers see identity and ownership documents; Finance sees payment receipts; Super admin sees both.
+    const role = cur.user.staffRole;
+    const isDoc = role !== "finance" && (await db.query.kycDocuments.findFirst({ where: eq(kycDocuments.fileKey, k) }));
+    const isProof = role !== "verifier" && (await db.query.payments.findFirst({ where: eq(payments.proofFileKey, k) }));
+    if (!isDoc && !isProof) return new Response("Not found", { status: 404 });
     await audit(cur.user.id, "file.view", "File", k);
   }
   try {

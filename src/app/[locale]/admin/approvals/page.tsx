@@ -1,3 +1,4 @@
+import { requireStaff } from "@/lib/auth";
 import Link from "next/link";
 import { and, asc, desc, eq, lt, or } from "drizzle-orm";
 import { pageCtx, type LP } from "@/lib/page";
@@ -15,6 +16,7 @@ import { PropertyArt } from "@/components/PropertyArt";
 
 export default async function Approvals({ params, searchParams }: LP & { searchParams: Promise<Record<string, string | undefined>> }) {
   const { l, t } = await pageCtx(params);
+  await requireStaff(l, ["verifier"]); // the menu hides this page from other roles; this blocks a typed address too
   const sp = await searchParams;
   const a = t.admin;
   const queue = await db.query.listings.findMany({

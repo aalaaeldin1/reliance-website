@@ -1,3 +1,4 @@
+import { requireStaff } from "@/lib/auth";
 import { desc, eq } from "drizzle-orm";
 import { pageCtx, type LP } from "@/lib/page";
 import { db } from "@/lib/db";
@@ -9,6 +10,7 @@ import { Empty, Notice, Pill, Table } from "@/components/ui";
 
 export default async function Refunds({ params, searchParams }: LP & { searchParams: Promise<Record<string, string | undefined>> }) {
   const { l, t } = await pageCtx(params);
+  await requireStaff(l, ["finance"]); // the menu hides this page from other roles; this blocks a typed address too
   const sp = await searchParams;
   const a = t.admin;
   const pending = await db.query.refunds.findMany({ where: eq(refunds.status, "pending"), with: { booking: { with: { guest: true, payments: true } } }, orderBy: refunds.createdAt });
