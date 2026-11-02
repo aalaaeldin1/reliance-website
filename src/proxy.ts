@@ -14,4 +14,8 @@ export function proxy(req: NextRequest) {
   return NextResponse.redirect(url);
 }
 
-export const config = { matcher: ["/((?!api|files|_next|favicon.ico|robots.txt|sitemap.xml|brand).*)"] };
+// Server-action posts (form submits, photo and document uploads) skip the proxy: it only redirects
+// bare paths, and skipping it avoids the proxy's 10 MB request-body buffer.
+export const config = {
+  matcher: [{ source: "/((?!api|files|_next|favicon.ico|robots.txt|sitemap.xml|brand).*)", missing: [{ type: "header", key: "next-action" }] }],
+};

@@ -78,7 +78,7 @@ export default async function HostHome({ params, searchParams }: LP & { searchPa
       {profile.kycStatus !== "verified" && (
         <section id="verify" className="mb-10 grid gap-6 lg:grid-cols-2">
           <div className="card p-5"><h2 className="font-display text-2xl font-semibold">{h.docs}</h2><p className="mb-3 text-sm text-muted">{h.docsLead}</p>
-            {REQUIRED[profile.hostType].map((d) => { const doc = docStatus(d); return <DocUploadForm key={d} locale={l} docType={d} label={h.docTypes[d as keyof Dict["host"]["docTypes"]]} statusLabel={doc ? h.docStatus[doc.status] + (doc.reason ? ` · ${doc.reason}` : "") : undefined} />; })}</div>
+            {REQUIRED[profile.hostType].map((d) => { const doc = docStatus(d); return <DocUploadForm key={d} locale={l} docType={d} label={h.docTypes[d as keyof Dict["host"]["docTypes"]]} statusLabel={doc ? h.docStatus[doc.status] + (doc.reason ? ` · ${doc.reason}` : "") : undefined} errText={h.docErr} />; })}</div>
           <div className="card p-5"><h2 className="font-display text-2xl font-semibold">{h.videoCall}</h2><p className="mb-3 text-sm text-muted">{h.videoLead}</p>
             {profile.videoCallAt && <Notice tone="ok">{fill(h.booked, { time: fmtDateTime(profile.videoCallAt, l) })}</Notice>}
             <form action={bookVideoCallAction} className="mt-3 flex flex-wrap gap-2"><input type="hidden" name="locale" value={l} />

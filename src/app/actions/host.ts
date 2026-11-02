@@ -174,8 +174,9 @@ export async function uploadPhotosAction(_: { error?: string; added?: number }, 
   const [{ n: have }] = await db.select({ n: count() }).from(photos).where(eq(photos.listingId, id));
   const [{ m }] = await db.select({ m: max(photos.sortOrder) }).from(photos).where(eq(photos.listingId, id));
   let order = (m ?? -1) + 1, added = 0, error: string | undefined;
+  if (files.length && have >= 30) return { added: 0, error: "photo_full" };
   for (const f of files) {
-    if (have + added >= 30) break;
+    if (have + added >= 30) { error = "photo_full"; break; }
     try {
       const saved = await savePhoto(id, f);
       await db.insert(photos).values({ listingId: id, ...saved, sortOrder: order++, pending: ["live", "paused"].includes(l.status) });

@@ -53,7 +53,7 @@ export default async function EditListing({ params, searchParams }: { params: Pr
               </form>
             </div>))}
         </div>
-        <PhotoUploader locale={l} listingId={id} t={t.wizard} />
+        <PhotoUploader locale={l} listingId={id} t={t.wizard} have={pics.length} />
       </section>
       <ListingForm locale={l} t={t.wizard} d={d} id={id} status={x.status} photoCount={pics.length} {...wizardProps(l, t)} />
     </div>

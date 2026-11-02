@@ -34,15 +34,21 @@ export async function savePhoto(listingId: string, file: File) {
   if (!IMAGE_TYPES.includes(file.type)) throw new Error("photo_type");
   if (file.size > 20 * 1024 * 1024) throw new Error("photo_size");
   const buf = Buffer.from(await file.arrayBuffer());
-  const img = sharp(buf, { failOn: "error" }).rotate();
-  const meta = await img.metadata();
-  if (!meta.width || meta.width < 1200) throw new Error("photo_small");
-  const id = randomUUID();
-  const full = await img.clone().resize({ width: 1920, withoutEnlargement: true }).webp({ quality: 82 }).toBuffer({ resolveWithObject: true });
-  const thumb = await img.clone().resize({ width: 640 }).webp({ quality: 78 }).toBuffer();
-  await putFile("public", `listings/${listingId}/${id}.webp`, full.data);
-  await putFile("public", `listings/${listingId}/${id}_t.webp`, thumb);
-  return { fileKey: `listings/${listingId}/${id}.webp`, width: full.info.width, height: full.info.height, phash: await dHash(buf) };
+  try {
+    const img = sharp(buf, { failOn: "error" }).rotate();
+    const meta = await img.metadata();
+    const width = (meta.orientation ?? 1) >= 5 ? meta.height : meta.width; // EXIF 5-8 = rotated 90°
+    if (!width || width < 1200) throw new Error("photo_small");
+    const id = randomUUID();
+    const full = await img.clone().resize({ width: 1920, withoutEnlargement: true }).webp({ quality: 82 }).toBuffer({ resolveWithObject: true });
+    const thumb = await img.clone().resize({ width: 640 }).webp({ quality: 78 }).toBuffer();
+    await putFile("public", `listings/${listingId}/${id}.webp`, full.data);
+    await putFile("public", `listings/${listingId}/${id}_t.webp`, thumb);
+    return { fileKey: `listings/${listingId}/${id}.webp`, width: full.info.width, height: full.info.height, phash: await dHash(buf) };
+  } catch (e) {
+    // Anything sharp cannot read (a renamed file, a broken download, an unsupported HEIC) → "not a photo".
+    throw new Error(e instanceof Error && e.message.startsWith("photo_") ? e.message : "photo_type");
+  }
 }
 
 /** Private document (ID, ownership papers, payment proof). Images are re-encoded to strip metadata. */

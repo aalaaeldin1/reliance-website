@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { createHostProfileAction, saveListingAction, suggestAction, uploadHostDocAction, uploadPhotosAction, type SaveState } from "@/app/actions/host";
 import { Submit } from "./Submit";
 import type { Dict } from "@/lib/i18n";
@@ -26,7 +27,7 @@ export function HostProfileForm({ locale, t, defaultName }: { locale: string; t:
   );
 }
 
-export function DocUploadForm({ locale, docType, label, statusLabel }: { locale: string; docType: string; label: string; statusLabel?: string }) {
+export function DocUploadForm({ locale, docType, label, statusLabel, errText }: { locale: string; docType: string; label: string; statusLabel?: string; errText?: string }) {
   const [s, act] = useActionState(uploadHostDocAction, {});
   return (
     <form action={act} className="flex flex-wrap items-center gap-3 border-t border-line py-3 first:border-0">
@@ -35,21 +36,62 @@ export function DocUploadForm({ locale, docType, label, statusLabel }: { locale:
       {statusLabel && <span className="text-xs text-muted">{statusLabel}</span>}
       <input name="file" type="file" accept="image/*,application/pdf" required className="max-w-56 text-xs" aria-label={label} />
       <Submit className="btn btn-sm">↑</Submit>
-      {s.ok && <span className="text-ok">✓</span>}{s.error && <span className="text-bad">✗</span>}
+      {s.ok && <span className="text-ok">✓</span>}{s.error && <span className="text-sm text-bad" role="alert">✗ {errText}</span>}
     </form>
   );
 }
 
-export function PhotoUploader({ locale, listingId, t }: { locale: string; listingId: string; t: W }) {
-  const [s, act] = useActionState(uploadPhotosAction, {});
+const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+const MAX_PHOTO = 20 * 1024 * 1024;
+
+/** Sends photos one at a time, so 20 phone photos never become one huge request, and shows progress. */
+export function PhotoUploader({ locale, listingId, t, have }: { locale: string; listingId: string; t: W; have: number }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<{ n: number; total: number } | null>(null);
+  const [added, setAdded] = useState(0);
+  const [errors, setErrors] = useState<{ name: string; code: string }[]>([]);
+  const errText = (code: string) => (t.photoErr as Record<string, string>)[code] ?? t.photoErr.failed;
+
+  async function onChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const input = e.currentTarget;
+    const files = Array.from(input.files ?? []);
+    if (!files.length) return;
+    setBusy(true); setAdded(0); setErrors([]);
+    let ok = 0; const errs: { name: string; code: string }[] = [];
+    const room = Math.max(0, 30 - have);
+    for (const [i, f] of files.entries()) {
+      setProgress({ n: i + 1, total: files.length });
+      if (ok >= room) { errs.push({ name: f.name, code: "photo_full" }); continue; }
+      if (f.type && !PHOTO_TYPES.includes(f.type)) { errs.push({ name: f.name, code: "photo_type" }); continue; }
+      if (f.size > MAX_PHOTO) { errs.push({ name: f.name, code: "photo_size" }); continue; }
+      const fd = new FormData();
+      fd.set("locale", locale); fd.set("listingId", listingId); fd.append("photos", f);
+      try {
+        const r = await uploadPhotosAction({}, fd);
+        if (r.added) ok += r.added;
+        if (r.error) errs.push({ name: f.name, code: r.error });
+      } catch { errs.push({ name: f.name, code: "failed" }); }
+    }
+    input.value = "";
+    setAdded(ok); setErrors(errs); setProgress(null); setBusy(false);
+    router.refresh();
+  }
+
   return (
-    <form action={act} className="flex flex-wrap items-center gap-3">
-      <input type="hidden" name="locale" value={locale} /><input type="hidden" name="listingId" value={listingId} />
-      <input name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple required className="text-sm" aria-label={t.addPhotos} />
-      <Submit className="btn-navy btn-sm">{t.addPhotos}</Submit>
-      {s.added ? <span className="text-sm text-ok">+{s.added}</span> : null}
-      {s.error && <span className="text-sm text-bad">{(t.photoErr as Record<string, string>)[s.error] ?? s.error}</span>}
-    </form>
+    <div className="space-y-2" aria-live="polite">
+      <label className={`btn-navy btn-sm inline-flex cursor-pointer ${busy ? "pointer-events-none opacity-60" : ""}`}>
+        {t.addPhotos}
+        <input name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={onChange} disabled={busy} aria-label={t.addPhotos} />
+      </label>
+      {progress && <p className="text-sm text-muted">{t.uploading.replace("{n}", String(progress.n)).replace("{total}", String(progress.total))}</p>}
+      {!busy && added > 0 && <p className="text-sm text-ok">{t.uploaded.replace("{n}", String(added))}</p>}
+      {errors.length > 0 && (
+        <ul className="space-y-0.5 text-sm text-bad" role="alert">
+          {errors.map((x, i) => <li key={i}><span dir="ltr" className="font-medium">{x.name}</span>: {errText(x.code)}</li>)}
+        </ul>
+      )}
+    </div>
   );
 }
 
