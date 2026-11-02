@@ -23,7 +23,7 @@ export default async function RootLayout({ children, params }: { children: React
   const t = getDict(locale);
   const cur = await getCurrent();
   return (
-    <html lang={locale} dir={dirOf(locale)}>
+    <html lang={locale} dir={dirOf(locale)} suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
